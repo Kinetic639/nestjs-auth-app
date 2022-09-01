@@ -2,9 +2,11 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthCredentialsDto } from './dto/auth-credentials.dto';
 import { User } from '../users/user.entity';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -13,7 +15,9 @@ export class AuthService {
     const user = new User();
 
     user.email = email;
-    user.password = password;
+
+    const saltOrRounds = 10;
+    user.password = await bcrypt.hash(password, saltOrRounds);
 
     try {
       await user.save();
@@ -23,6 +27,16 @@ export class AuthService {
       } else {
         throw new InternalServerErrorException();
       }
+    }
+  }
+
+  async signIn(authCredentialsDto: AuthCredentialsDto): Promise<string> {
+    const { email, password } = authCredentialsDto;
+    const user = await User.findOneOrFail({ where: { email } });
+    if (user && (await bcrypt.compare(password, user.password))) {
+      return 'success';
+    } else {
+      throw new UnauthorizedException('Please check your login credentials');
     }
   }
 }
