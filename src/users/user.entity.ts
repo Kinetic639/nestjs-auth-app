@@ -1,4 +1,3 @@
-import { IsEmail } from 'class-validator';
 import { BaseEntity, Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { UserTypes } from '../types';
 
@@ -7,19 +6,15 @@ export class User extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  @IsEmail()
+  @Column({ unique: true })
   email: string;
 
   @Column()
-  pwdHash: string;
-
-  @Column({
-    nullable: true,
-    default: null,
-  })
-  currentTokenId: string | null;
+  password: string;
 
   @Column({ default: UserTypes.USER })
   role: UserTypes;
+
+  @Column({ default: true })
+  isActive: boolean;
 }

@@ -4,5 +4,6 @@ import { User } from './user.entity';
 
 @Module({
   providers: [UsersService, User],
+  exports: [UsersService],
 })
 export class UsersModule {}
