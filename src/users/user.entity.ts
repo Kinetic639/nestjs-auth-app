@@ -1,5 +1,5 @@
 import { BaseEntity, Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
-import { UserTypes } from '../types';
+import { UserRoles } from '../types';
 
 @Entity()
 export class User extends BaseEntity {
@@ -10,10 +10,16 @@ export class User extends BaseEntity {
   email: string;
 
   @Column()
+  firstName: string;
+
+  @Column()
+  LastName: string;
+
+  @Column()
   password: string;
 
-  @Column({ default: UserTypes.USER })
-  role: UserTypes;
+  @Column({ default: UserRoles.USER })
+  role: UserRoles;
 
   @Column({ default: true })
   isActive: boolean;
