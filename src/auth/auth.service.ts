@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
@@ -8,19 +10,30 @@ import { AuthCreateUserDto } from './dto/auth-create-user.dto';
 import { User } from '../users/user.entity';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { JwtPayload } from '../types/auth/jwt/jwt-payload';
+import { JwtPayload } from '../types';
 import { Response } from 'express';
 import { UsersService } from '../users/users.service';
 import { ConfigService } from '@nestjs/config';
 import { AuthLoginUserDto } from './dto/auth-login-user.dto';
+import { MailService } from '../mail/mail.service';
+
+interface Activate {
+  password: string;
+  rePassword: string;
+}
 
 @Injectable()
 export class AuthService {
   constructor(
+    @Inject(forwardRef(() => UsersService)) private usersService: UsersService,
+    @Inject(forwardRef(() => MailService)) private mailService: MailService,
     private jwtService: JwtService,
-    private userService: UsersService,
     private configService: ConfigService,
   ) {}
+
+  async setPassword(password: string) {
+    return await bcrypt.hash(password, 10);
+  }
 
   async signUp(authCreateUserDto: AuthCreateUserDto): Promise<any> {
     const { email, firstName, lastName, password } = authCreateUserDto;
@@ -30,12 +43,11 @@ export class AuthService {
     user.firstName = firstName;
     user.lastName = lastName;
 
-    const saltOrRounds = 10;
-    user.password = await bcrypt.hash(password, saltOrRounds);
+    user.password = await this.setPassword(password);
 
     try {
       await user.save();
-      return this.userService.filterUsersData(user);
+      return this.usersService.filterUsersData(user);
     } catch (e) {
       if (e.code === 'ER_DUP_ENTRY') {
         throw new ConflictException('Username already exists');
@@ -64,7 +76,7 @@ export class AuthService {
             httpOnly: this.configService.get('COOKIE_HTTPONLY'),
             maxAge: this.configService.get('COOKIE_MAX_AGE'),
           })
-          .json(this.userService.filterUsersData(user));
+          .json(this.usersService.filterUsersData(user));
       } else {
         throw new UnauthorizedException('Incorrect email or password');
       }
@@ -94,5 +106,72 @@ export class AuthService {
     //   } catch (e) {
     //     throw new InternalServerErrorException(e.message);
     //   }
+  }
+
+  generateToken(user) {
+    const payload = {
+      email: user.email,
+      id: user.id,
+      token: user.token,
+    };
+
+    return this.jwtService.sign(payload, { expiresIn: '10h' });
+  }
+
+  async sendEmailToReset(email: string) {
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return {
+        statusCode: 404,
+        message: 'Użytkownik o tym emailu nie istnieje',
+      };
+    }
+
+    // if (user.active === false) {
+    //   res.status(404);
+    //   return {
+    //     statusCode: 404,
+    //     message: "Twoje konto nie zostało jeszcze aktywowane"
+    //   };
+    // }
+    const token = this.generateToken(user);
+
+    await this.mailService.sendMail(
+      email,
+      `Reset hasła do aplikacji rekrutacja MegaK`,
+      `<a href="http://localhost:3000/auth/reset-password/${token}">Reset hasła</a>`,
+    );
+
+    return { statusCode: 200, message: 'Email do resetowania hasła wysłany' };
+  }
+
+  async resetPassword(email: string, data: Activate) {
+    const user = await User.findOne({ where: { email } });
+
+    if (
+      !data.password ||
+      !data.rePassword ||
+      data.password !== data.rePassword
+    ) {
+      return {
+        message: 'Musisz uzupełnić i powtórzyć hasło i muszą być takie same',
+        statusCode: 404,
+      };
+    }
+
+    // const validatePass: ValidPass = this.validatePassword(data.password);
+
+    // if (validatePass.statusCode !== 200) {
+    //   return validatePass;
+    // }
+
+    user.password = await this.setPassword(data.password);
+    await user.save();
+
+    return {
+      statusCode: 202,
+      message: 'Hasło zresetowane poprawnie',
+    };
   }
 }

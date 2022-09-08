@@ -4,4 +4,5 @@ export type UserFiltered = {
   firstName: string;
   lastName: string;
   role: string;
+  isActive: boolean;
 };

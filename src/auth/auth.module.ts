@@ -7,14 +7,17 @@ import { JwtStrategy } from './jwt.strategy';
 import { UsersService } from '../users/users.service';
 import { ConfigModule } from '@nestjs/config';
 import { jwtConfig } from './config/jwt.config';
+import { MailModule } from '../mail/mail.module';
+import { JwtResetPasswordStrategy } from './passport-strategy/reset-password.strategy';
 
 @Module({
   imports: [
     forwardRef(() => PassportModule.register({ defaultStrategy: 'jwt' })),
     forwardRef(() => ConfigModule),
     forwardRef(() => JwtModule.registerAsync(jwtConfig)),
+    forwardRef(() => MailModule),
   ],
-  providers: [AuthService, JwtStrategy, UsersService],
+  providers: [AuthService, JwtStrategy, JwtResetPasswordStrategy, UsersService],
   controllers: [AuthController],
   exports: [JwtStrategy, PassportModule],
 })

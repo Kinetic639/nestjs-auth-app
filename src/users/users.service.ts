@@ -5,12 +5,12 @@ import { UserFiltered } from '../types';
 @Injectable()
 export class UsersService {
   filterUsersData(user: User): UserFiltered {
-    const { id, email, firstName, lastName, role } = user;
-    return { id, email, firstName, lastName, role };
+    const { id, email, firstName, lastName, role, isActive } = user;
+    return { id, email, firstName, lastName, role, isActive };
   }
 
   async findUserByEmail(email: string): Promise<UserFiltered | null> {
     const user = await User.findOne({ where: { email } });
-    return this.filterUsersData(user);
+    return !user ? null : this.filterUsersData(user);
   }
 }
